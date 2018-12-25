@@ -39,8 +39,7 @@ static VALUE cgpgene_evaluate(VALUE self, VALUE vInputs)
 {
   Check_Type(vInputs, T_ARRAY);
   // Convert our inputs:
-  VALUE vNumIn = rb_ary_length(vInputs);
-  unsigned int num_in = NUM2UINT(vNumIn);
+  long num_in = RARRAY_LEN(vInputs);
   // Make a c array:
   double *inputs = (double *)malloc(sizeof(double)*num_in); 
   for(int i=0; i<num_in; i++){
@@ -71,7 +70,6 @@ static VALUE cgpgene_evaluate(VALUE self, VALUE vInputs)
   free(outputs);
 
   return result;
-
 }
 
 void Init_geneprog(void) {
@@ -80,5 +78,5 @@ void Init_geneprog(void) {
   VALUE cCGPGene = rb_define_class_under(mGeneprog, "CGPGene", rb_cObject);
   rb_define_alloc_func(cCGPGene, cgpgene_allocate);
   rb_define_method(cCGPGene, "initialize", cgpgene_initialize, 3);
-  //rb_define_method(cCGPGene, "evaluate", cgpgene_evaluate, 1);
+  rb_define_method(cCGPGene, "evaluate", cgpgene_evaluate, 1);
 }
