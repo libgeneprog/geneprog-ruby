@@ -29,6 +29,9 @@ static VALUE cgpgene_initialize(VALUE self, VALUE vNumIn, VALUE vNumMid, VALUE v
 
   GP_CGP_init(gene, num_in, num_mid, num_out);
 
+  // Randomize
+  GP_CGP_randomize(gene);
+
   rb_iv_set(self, "@num_inputs", vNumIn);
   rb_iv_set(self, "@num_outputs", vNumOut);
 
