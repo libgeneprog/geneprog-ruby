@@ -1,85 +1,100 @@
+// SPDX-License-Identifier: BSD-3-Clause
 #include <ruby.h>
 
 #include "geneprog/gene.h"
 #include "geneprog/cgp-data.h"
 
-static void cgpgene_deallocate(void * gene)
+static void cgpgene_deallocate(void *gene)
 {
-  GP_CGP_free((GP_Gene *)gene);
+	GP_CGP_free((struct GP_Gene *)gene);
 }
 
 static VALUE cgpgene_allocate(VALUE klass)
 {
-  GP_Gene* gene = malloc(sizeof(GP_Gene));
-  return Data_Wrap_Struct(klass, NULL, cgpgene_deallocate, gene);
+	struct GP_Gene *gene;
+
+	gene = malloc(sizeof(struct GP_Gene));
+	return Data_Wrap_Struct(klass, NULL, cgpgene_deallocate, gene);
 }
 
-static VALUE cgpgene_initialize(VALUE self, VALUE vNumIn, VALUE vNumMid, VALUE vNumOut)
+static VALUE cgpgene_initialize(VALUE self,
+				VALUE vNumIn,
+				VALUE vNumMid,
+				VALUE vNumOut)
 {
-  Check_Type(vNumIn, T_FIXNUM);
-  Check_Type(vNumMid, T_FIXNUM);
-  Check_Type(vNumOut, T_FIXNUM);
-  unsigned int num_in = NUM2UINT(vNumIn);
-  unsigned int num_mid = NUM2UINT(vNumMid);
-  unsigned int num_out= NUM2UINT(vNumOut);
+	Check_Type(vNumIn, T_FIXNUM);
+	Check_Type(vNumMid, T_FIXNUM);
+	Check_Type(vNumOut, T_FIXNUM);
 
-  GP_Gene* gene;
+	unsigned int num_in, num_mid, num_out;
+	struct GP_Gene *gene;
 
-  Data_Get_Struct(self, GP_Gene, gene);
+	num_in = NUM2UINT(vNumIn);
+	num_mid = NUM2UINT(vNumMid);
+	num_out = NUM2UINT(vNumOut);
 
-  GP_CGP_init(gene, num_in, num_mid, num_out);
+	Data_Get_Struct(self, struct GP_Gene, gene);
 
-  // Randomize
-  GP_CGP_randomize(gene);
+	GP_CGP_init(gene, num_in, num_mid, num_out);
 
-  rb_iv_set(self, "@num_inputs", vNumIn);
-  rb_iv_set(self, "@num_outputs", vNumOut);
+	// Randomize
+	GP_CGP_randomize(gene);
 
-  return self;
+	rb_iv_set(self, "@num_inputs", vNumIn);
+	rb_iv_set(self, "@num_outputs", vNumOut);
+
+	return self;
 }
 
 static VALUE cgpgene_evaluate(VALUE self, VALUE vInputs)
 {
-  Check_Type(vInputs, T_ARRAY);
-  // Convert our inputs:
-  long num_in = RARRAY_LEN(vInputs);
-  // Make a c array:
-  double *inputs = (double *)malloc(sizeof(double)*num_in); 
-  for(int i=0; i<num_in; i++){
-    VALUE elem = rb_ary_entry(vInputs, i);
-    inputs[i] = NUM2DBL(elem);
-  }
+	Check_Type(vInputs, T_ARRAY);
+	long num_in;
+	double *inputs, *outputs;
+	unsigned int num_out;
+	VALUE vNumOut, elem, result;
+	struct GP_Gene *gene;
 
-  // Make a c array to hold the outputs:
-  VALUE vNumOut = rb_iv_get(self, "@num_outputs");
-  unsigned int num_out = NUM2UINT(vNumOut);
-  double *outputs = (double *)malloc(sizeof(double)*num_out); 
+	// Convert our inputs:
+	num_in = RARRAY_LEN(vInputs);
+	// Make a c array:
+	inputs = (double *)malloc(sizeof(double) * num_in);
+	for (int i = 0; i < num_in; i++) {
+		elem = rb_ary_entry(vInputs, i);
+		inputs[i] = NUM2DBL(elem);
+	}
 
-  // Get our gene:
-  GP_Gene* gene;
-  Data_Get_Struct(self, GP_Gene, gene);
+	// Make a c array to hold the outputs:
+	vNumOut = rb_iv_get(self, "@num_outputs");
+	num_out = NUM2UINT(vNumOut);
+	outputs = (double *)malloc(sizeof(double) * num_out);
 
-  // Call evaluate:
-  gene->evaluate(inputs, outputs, gene->data);
+	// Get our gene:
+	Data_Get_Struct(self, struct GP_Gene, gene);
 
-  // Make a new array to hold the result:
-  VALUE result = rb_ary_new();
-  for(int i=0; i<num_out; i++){
-    rb_ary_push(result, DBL2NUM(outputs[i]));
-  }
+	// Call evaluate:
+	gene->evaluate(inputs, outputs, gene->data);
 
-  // Clean up:
-  free(inputs);
-  free(outputs);
+	// Make a new array to hold the result:
+	result = rb_ary_new();
+	for (int i = 0; i < num_out; i++)
+		rb_ary_push(result, DBL2NUM(outputs[i]));
 
-  return result;
+	// Clean up:
+	free(inputs);
+	free(outputs);
+
+	return result;
 }
 
-void Init_geneprog(void) {
-  VALUE mGeneprog = rb_define_module("Geneprog");
+void Init_geneprog(void)
+{
+	VALUE mGeneprog, cCGPGene;
 
-  VALUE cCGPGene = rb_define_class_under(mGeneprog, "CGPGene", rb_cObject);
-  rb_define_alloc_func(cCGPGene, cgpgene_allocate);
-  rb_define_method(cCGPGene, "initialize", cgpgene_initialize, 3);
-  rb_define_method(cCGPGene, "evaluate", cgpgene_evaluate, 1);
+	mGeneprog = rb_define_module("Geneprog");
+
+	cCGPGene = rb_define_class_under(mGeneprog, "CGPGene", rb_cObject);
+	rb_define_alloc_func(cCGPGene, cgpgene_allocate);
+	rb_define_method(cCGPGene, "initialize", cgpgene_initialize, 3);
+	rb_define_method(cCGPGene, "evaluate", cgpgene_evaluate, 1);
 }
